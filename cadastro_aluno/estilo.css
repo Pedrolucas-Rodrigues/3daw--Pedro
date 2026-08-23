@@ -1,0 +1,126 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    /* Fundo preto puro */
+    background: #000000;
+
+    min-height: 100vh;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.container {
+    width: 420px;
+    /* Fundo cinza bem escuro para destacar o preto do fundo */
+    background-color: #111111;
+
+    padding: 35px;
+
+    border-radius: 20px;
+
+    /* Sombra vermelha sutil */
+    box-shadow: 0 10px 30px rgba(255, 0, 0, 0.15);
+}
+
+h1 {
+    text-align: center;
+
+    color: #ff0000;
+
+    margin-bottom: 10px;
+}
+
+.subtitulo {
+    text-align: center;
+
+    color: #ffffff;
+
+    margin-bottom: 25px;
+}
+
+label {
+    display: block;
+
+    color: #ffffff;
+
+    font-weight: bold;
+
+    margin-top: 15px;
+    margin-bottom: 6px;
+}
+
+input[type="text"] {
+    width: 100%;
+
+    padding: 12px;
+
+    /* Borda vermelha escura */
+    border: 2px solid #880000;
+
+    border-radius: 10px;
+
+    background-color: #ffffff;
+
+    font-size: 15px;
+}
+
+input[type="text"]:focus {
+    outline: none;
+
+    /* Vermelho vivo ao focar */
+    border-color: #ff0000;
+
+    box-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
+}
+
+input[type="submit"] {
+    width: 100%;
+
+    margin-top: 25px;
+
+    padding: 13px;
+
+    border: none;
+
+    border-radius: 10px;
+
+    /* Botão vermelho */
+    background-color: #ff0000;
+
+    color: #ffffff;
+
+    font-size: 16px;
+
+    font-weight: bold;
+
+    cursor: pointer;
+}
+
+input[type="submit"]:hover {
+    /* Efeito de hover escurece o botão */
+    background-color: #cc0000;
+}
+
+.mensagem {
+    margin-top: 20px;
+
+    padding: 12px;
+
+    /* Fundo vermelho escuro com texto branco */
+    background-color: #330000;
+
+    border-radius: 10px;
+
+    text-align: center;
+
+    color: #ffffff;
+
+    font-weight: bold;
+}

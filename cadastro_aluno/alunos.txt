@@ -1,0 +1,3 @@
+nome;matricula;curso
+Nathalia Yasmin Bastos Cardoso;25204708360028;ADS - FAETERJ
+Nathalia Yasmin Bastos Cardoso;25204708360028;ADS - FAETERJ
