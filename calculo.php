@@ -19,9 +19,10 @@ switch($op){
     echo"$result";
     break;
 
+    case "/":
+    $result = $num1 * $num2;
+    echo"$result";
+    break;
+
 }
-
-
-
-
 ?>
