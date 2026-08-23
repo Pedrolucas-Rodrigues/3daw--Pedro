@@ -1,5 +1,5 @@
 <?php 
-// Deixamos a variável vazia no começo para não dar erro
+
 $result = ""; 
 
 $num1 = $_GET["num1"];
