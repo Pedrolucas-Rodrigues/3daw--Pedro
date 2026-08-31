@@ -1,0 +1,4 @@
+SIGLA;NOME;CARGA
+MAT1;Matematica;60
+POO2;Programacao Orientada a Objetos;80
+WEB3;Desenvolvimento Web;40
