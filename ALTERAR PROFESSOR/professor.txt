@@ -1,0 +1,3 @@
+nome;matricula;curso
+Maria Claudia;1;3RSD
+Andre;2;3DAW
