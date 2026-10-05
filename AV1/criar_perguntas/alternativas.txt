@@ -1,5 +1,4 @@
-id_pergunta;texto_alternativa;letra;correta
-1;am;A;1
-1;v;B;0
-1;c;C;0
-1;d;D;0
+1;Qualquer pessoa;A;1
+1;Peter Parker;B;0
+1;Miles Morales;C;0
+1;Miguel O´hara;D;0
