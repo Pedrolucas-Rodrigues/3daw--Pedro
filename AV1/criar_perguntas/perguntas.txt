@@ -1,0 +1,2 @@
+id;pergunta
+1;Quem descobriu a america
