@@ -1,38 +1,8 @@
 <?php
-$arquivoPergunta     = "perguntas.txt";
-$arquivoAlternativas = "alternativas.txt";
+require_once 'conexao.php';
 
 $msg = "";
 $erro = "";
-
-// Limpa caracteres invisíveis de codificação (BOM UTF-8)
-function limparTexto($texto) {
-    return trim(str_replace("\xEF\xBB\xBF", "", $texto));
-}
-
-// Obtém o próximo ID incremental
-function obterProximoId($arquivo) {
-    if (!file_exists($arquivo)) {
-        return 1;
-    }
-
-    $linhas = file($arquivo, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    $maiorId = 0;
-
-    foreach ($linhas as $linha) {
-        $linhaLimpa = limparTexto($linha);
-        if (empty($linhaLimpa)) continue;
-
-        $dados = explode(";", $linhaLimpa);
-        $idAtual = intval(limparTexto($dados[0] ?? 0));
-
-        if ($idAtual > $maiorId) {
-            $maiorId = $idAtual;
-        }
-    }
-
-    return $maiorId + 1;
-}
 
 if (isset($_GET['sucesso']) && isset($_GET['id'])) {
     $idCadastrado = intval($_GET['id']);
@@ -41,40 +11,53 @@ if (isset($_GET['sucesso']) && isset($_GET['id'])) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $tipo     = $_POST['tipo'] ?? 'multipla';
-    $pergunta = str_replace([";", "\r", "\n"], ["", " ", " "], trim($_POST['pergunta'] ?? ''));
+    $pergunta = trim($_POST['pergunta'] ?? '');
 
     if (empty($pergunta)) {
         $erro = "Por favor, digite o enunciado da pergunta.";
     } else {
-        $novoId = obterProximoId($arquivoPergunta);
+        try {
+            $pdo->beginTransaction();
 
-        // Salva em perguntas.txt
-        $linhaPergunta = $novoId . ";" . $tipo . ";" . $pergunta . "\n";
-        file_put_contents($arquivoPergunta, $linhaPergunta, FILE_APPEND);
+            $stmt = $pdo->prepare("INSERT INTO perguntas (tipo, pergunta) VALUES (:tipo, :pergunta)");
+            $stmt->execute([
+                ':tipo'     => $tipo,
+                ':pergunta' => $pergunta
+            ]);
+            $novoId = $pdo->lastInsertId();
 
-        if ($tipo === 'multipla') {
-            $altA    = str_replace([";", "\r", "\n"], ["", " ", " "], trim($_POST['a'] ?? ''));
-            $altB    = str_replace([";", "\r", "\n"], ["", " ", " "], trim($_POST['b'] ?? ''));
-            $altC    = str_replace([";", "\r", "\n"], ["", " ", " "], trim($_POST['c'] ?? ''));
-            $altD    = str_replace([";", "\r", "\n"], ["", " ", " "], trim($_POST['d'] ?? ''));
-            $correta = $_POST['correta'] ?? 'A';
+            if ($tipo === 'multipla') {
+                $opcoes = [
+                    'A' => trim($_POST['a'] ?? ''),
+                    'B' => trim($_POST['b'] ?? ''),
+                    'C' => trim($_POST['c'] ?? ''),
+                    'D' => trim($_POST['d'] ?? '')
+                ];
+                $correta = $_POST['correta'] ?? 'A';
 
-            $opcoes = ['A' => $altA, 'B' => $altB, 'C' => $altC, 'D' => $altD];
-            $linhasAlternativas = "";
+                $stmtAlt = $pdo->prepare("INSERT INTO alternativas (id_pergunta, texto, letra, correta) VALUES (:id_pergunta, :texto, :letra, :correta)");
 
-            foreach ($opcoes as $letra => $texto) {
-                $isCorreta = ($letra === $correta) ? 1 : 0;
-                $linhasAlternativas .= $novoId . ";" . $texto . ";" . $letra . ";" . $isCorreta . "\n";
+                foreach ($opcoes as $letra => $texto) {
+                    $isCorreta = ($letra === $correta) ? 1 : 0;
+                    $stmtAlt->execute([
+                        ':id_pergunta' => $novoId,
+                        ':texto'       => $texto,
+                        ':letra'       => $letra,
+                        ':correta'     => $isCorreta
+                    ]);
+                }
             }
 
-            file_put_contents($arquivoAlternativas, $linhasAlternativas, FILE_APPEND);
+            $pdo->commit();
+            header("Location: criar_pergunta.php?sucesso=1&id=" . $novoId);
+            exit;
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $erro = "Erro ao cadastrar pergunta: " . $e->getMessage();
         }
-        header("Location: criar_pergunta.php?sucesso=1&id=" . $novoId);
-        exit;
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -92,13 +75,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <?php if (!empty($msg)) { ?>
             <div class="alerta sucesso">
-                 <?php echo $msg; ?> 
-                <br><br>
+                <?php echo $msg; ?>
             </div>
         <?php } ?>
 
         <?php if (!empty($erro)) { ?>
-            <div class="alerta erro"> <?php echo $erro; ?></div>
+            <div class="alerta erro"><?php echo $erro; ?></div>
         <?php } ?>
 
         <form action="criar_pergunta.php" method="POST">
@@ -111,11 +93,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <br><br>
 
             <label for="pergunta">Pergunta / Enunciado:</label>
-            <textarea name="pergunta" id="pergunta" rows="4" style="width: 100%;" required placeholder="Digite a sua pergunta aqui..."></textarea>
+            <textarea name="pergunta" id="pergunta" rows="4" class="textarea-full" required placeholder="Digite a sua pergunta aqui..."></textarea>
 
             <br><br>
 
-            <!-- BLOCO DE ALTERNATIVAS -->
             <div id="bloco-multipla">
                 <h3>Alternativas</h3>
                 
@@ -155,10 +136,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             const inputs = blocoMultipla.querySelectorAll('input[type="text"]');
             
             if (tipo === 'dissertativa') {
-                blocoMultipla.style.display = 'none';
+                blocoMultipla.classList.add('oculto');
                 inputs.forEach(i => i.removeAttribute('required'));
             } else {
-                blocoMultipla.style.display = 'block';
+                blocoMultipla.classList.remove('oculto');
                 inputs.forEach(i => i.setAttribute('required', 'true'));
             }
         }

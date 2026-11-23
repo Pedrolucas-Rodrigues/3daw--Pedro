@@ -1,128 +1,85 @@
 <?php
-$arquivoPergunta     = "perguntas.txt";
-$arquivoAlternativas = "alternativas.txt";
+require_once 'conexao.php';
 
 $msg = "";
 $erro = "";
 
-
-$idEditar = $_GET['id'] ?? $_POST['id_pergunta'] ?? null;
-
-
-function limparTexto($texto) {
-    return trim(str_replace("\xEF\xBB\xBF", "", $texto));
-}
-
+$idEditar = isset($_GET['id']) ? intval($_GET['id']) : (isset($_POST['id_pergunta']) ? intval($_POST['id_pergunta']) : null);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $idEditar) {
     $novoTipo     = $_POST['tipo'] ?? 'multipla';
-    $novaPergunta = str_replace([";", "\r", "\n"], ["", " ", " "], trim($_POST['pergunta'] ?? ''));
+    $novaPergunta = trim($_POST['pergunta'] ?? '');
 
     if (empty($novaPergunta)) {
         $erro = "O enunciado da pergunta não pode ficar em branco.";
     } else {
-        
-        if (file_exists($arquivoPergunta)) {
-            $linhasP = file($arquivoPergunta, FILE_IGNORE_NEW_LINES);
-            $novasLinhasP = [];
+        try {
+            $pdo->beginTransaction();
 
-            foreach ($linhasP as $linha) {
-                $linhaLimpa = limparTexto($linha);
-                if ($linhaLimpa === '') continue;
+            $stmt = $pdo->prepare("UPDATE perguntas SET tipo = :tipo, pergunta = :pergunta WHERE id = :id");
+            $stmt->execute([
+                ':tipo'     => $novoTipo,
+                ':pergunta' => $novaPergunta,
+                ':id'       => $idEditar
+            ]);
 
-                $dados = explode(";", $linhaLimpa);
-                $idLinha = limparTexto($dados[0] ?? '');
-
-                if ($idLinha == $idEditar) {
-                    $novasLinhasP[] = $idEditar . ";" . $novoTipo . ";" . $novaPergunta;
-                } else {
-                    $novasLinhasP[] = $linhaLimpa;
-                }
-            }
-            file_put_contents($arquivoPergunta, implode("\n", $novasLinhasP) . "\n");
-        }
-
-       
-        if (file_exists($arquivoAlternativas)) {
-            $linhasA = file($arquivoAlternativas, FILE_IGNORE_NEW_LINES);
-            $novasLinhasA = [];
-
-            foreach ($linhasA as $linha) {
-                $linhaLimpa = limparTexto($linha);
-                if ($linhaLimpa === '') continue;
-
-                $dadosA = explode(";", $linhaLimpa);
-                $idLinhaA = limparTexto($dadosA[0] ?? '');
-
-                if ($idLinhaA != $idEditar) {
-                    $novasLinhasA[] = $linhaLimpa;
-                }
-            }
+            $stmtDel = $pdo->prepare("DELETE FROM alternativas WHERE id_pergunta = :id");
+            $stmtDel->execute([':id' => $idEditar]);
 
             if ($novoTipo === 'multipla') {
-                $altA    = str_replace([";", "\r", "\n"], ["", " ", " "], trim($_POST['a'] ?? ''));
-                $altB    = str_replace([";", "\r", "\n"], ["", " ", " "], trim($_POST['b'] ?? ''));
-                $altC    = str_replace([";", "\r", "\n"], ["", " ", " "], trim($_POST['c'] ?? ''));
-                $altD    = str_replace([";", "\r", "\n"], ["", " ", " "], trim($_POST['d'] ?? ''));
+                $opcoes = [
+                    'A' => trim($_POST['a'] ?? ''),
+                    'B' => trim($_POST['b'] ?? ''),
+                    'C' => trim($_POST['c'] ?? ''),
+                    'D' => trim($_POST['d'] ?? '')
+                ];
                 $correta = $_POST['correta'] ?? 'A';
 
-                $opcoes = ['A' => $altA, 'B' => $altB, 'C' => $altC, 'D' => $altD];
+                $stmtAlt = $pdo->prepare("INSERT INTO alternativas (id_pergunta, texto, letra, correta) VALUES (:id_pergunta, :texto, :letra, :correta)");
                 foreach ($opcoes as $letra => $texto) {
                     $isCorreta = ($letra === $correta) ? 1 : 0;
-                    $novasLinhasA[] = $idEditar . ";" . $texto . ";" . $letra . ";" . $isCorreta;
+                    $stmtAlt->execute([
+                        ':id_pergunta' => $idEditar,
+                        ':texto'       => $texto,
+                        ':letra'       => $letra,
+                        ':correta'     => $isCorreta
+                    ]);
                 }
             }
 
-            file_put_contents($arquivoAlternativas, implode("\n", $novasLinhasA) . "\n");
+            $pdo->commit();
+            $msg = "Pergunta #{$idEditar} alterada com sucesso!";
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $erro = "Erro ao atualizar pergunta: " . $e->getMessage();
         }
-
-        $msg = "Pergunta #{$idEditar} alterada com sucesso!";
     }
 }
-
 
 $dadosPergunta = null;
 $opcoesAtuais  = ['A' => '', 'B' => '', 'C' => '', 'D' => ''];
 $corretaAtual  = 'A';
 
 if ($idEditar) {
-    if (file_exists($arquivoPergunta)) {
-        $linhasP = file($arquivoPergunta, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        foreach ($linhasP as $linha) {
-            $linhaLimpa = limparTexto($linha);
-            $dados = explode(";", $linhaLimpa);
-            $idLinha = limparTexto($dados[0] ?? '');
+    $stmt = $pdo->prepare("SELECT * FROM perguntas WHERE id = :id");
+    $stmt->execute([':id' => $idEditar]);
+    $dadosPergunta = $stmt->fetch();
 
-            if ($idLinha == $idEditar) {
-                $dadosPergunta = [
-                    'id'       => $idLinha,
-                    'tipo'     => limparTexto($dados[1] ?? 'multipla'),
-                    'pergunta' => limparTexto($dados[2] ?? '')
-                ];
-                break;
-            }
-        }
-    }
+    if ($dadosPergunta) {
+        $stmtAlt = $pdo->prepare("SELECT * FROM alternativas WHERE id_pergunta = :id");
+        $stmtAlt->execute([':id' => $idEditar]);
+        $alternativas = $stmtAlt->fetchAll();
 
-    if ($dadosPergunta && file_exists($arquivoAlternativas)) {
-        $linhasA = file($arquivoAlternativas, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        foreach ($linhasA as $linha) {
-            $linhaLimpa = limparTexto($linha);
-            $dadosA = explode(";", $linhaLimpa);
-            $idLinhaA = limparTexto($dadosA[0] ?? '');
-
-            if ($idLinhaA == $idEditar && count($dadosA) >= 4) {
-                $letra = limparTexto($dadosA[2]);
-                $opcoesAtuais[$letra] = limparTexto($dadosA[1]);
-                if (limparTexto($dadosA[3]) == '1') {
-                    $corretaAtual = $letra;
-                }
+        foreach ($alternativas as $alt) {
+            $letra = $alt['letra'];
+            $opcoesAtuais[$letra] = $alt['texto'];
+            if ($alt['correta'] == 1) {
+                $corretaAtual = $letra;
             }
         }
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -144,37 +101,12 @@ if ($idEditar) {
             <div class="alerta erro"><?php echo $erro; ?></div>
         <?php } ?>
 
-        <?php 
-      
-        if (!$idEditar) { 
-        ?>
+        <?php if (!$idEditar) { ?>
             <h1>Selecione uma Pergunta para Editar</h1>
 
             <?php
-            $perguntas = [];
-            if (file_exists($arquivoPergunta)) {
-                $linhasP = file($arquivoPergunta, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-                
-                foreach ($linhasP as $linha) {
-                    $linhaLimpa = limparTexto($linha);
-                    if ($linhaLimpa === '') continue;
-
-                    $dados = explode(";", $linhaLimpa);
-                    
-                    if (count($dados) >= 3) {
-                        $id = limparTexto($dados[0]);
-                        
-                       
-                        if (is_numeric($id)) {
-                            $perguntas[] = [
-                                'id'       => $id,
-                                'tipo'     => limparTexto($dados[1]),
-                                'pergunta' => limparTexto($dados[2])
-                            ];
-                        }
-                    }
-                }
-            }
+            $stmtLista = $pdo->query("SELECT * FROM perguntas ORDER BY id ASC");
+            $perguntas = $stmtLista->fetchAll();
 
             if (!empty($perguntas)) {
             ?>
@@ -204,15 +136,11 @@ if ($idEditar) {
                         <?php } ?>
                     </tbody>
                 </table>
-            <?php 
-            } else { 
-            ?>
-                <p class="sem-dados">Nenhuma pergunta encontrada no arquivo <code>perguntas.txt</code>. <a href="criar_pergunta.php">Cadastrar Pergunta</a></p>
+            <?php } else { ?>
+                <p class="sem-dados">Nenhuma pergunta encontrada no banco de dados. <a href="criar_pergunta.php">Cadastrar Pergunta</a></p>
             <?php } ?>
 
-        <?php 
-
-        } else { 
+        <?php } else { 
             if (!$dadosPergunta) {
                 echo "<div class='alerta erro'>Erro: A pergunta #{$idEditar} não foi encontrada. <a href='editarPerguntas.php'>Ver todas as perguntas</a></div>";
             } else {
@@ -231,11 +159,11 @@ if ($idEditar) {
                 <br><br>
 
                 <label for="pergunta">Pergunta / Enunciado:</label>
-                <textarea name="pergunta" id="pergunta" rows="4" style="width: 100%;" required><?php echo htmlspecialchars($dadosPergunta['pergunta']); ?></textarea>
+                <textarea name="pergunta" id="pergunta" rows="4" class="textarea-full" required><?php echo htmlspecialchars($dadosPergunta['pergunta']); ?></textarea>
 
                 <br><br>
 
-                <div id="bloco-multipla" style="display: <?php echo $dadosPergunta['tipo'] === 'multipla' ? 'block' : 'none'; ?>;">
+                <div id="bloco-multipla" class="<?php echo $dadosPergunta['tipo'] === 'multipla' ? '' : 'oculto'; ?>">
                     <h3>Alternativas</h3>
                     
                     <label for="a">[A]:</label>
@@ -279,10 +207,10 @@ if ($idEditar) {
             const inputs = blocoMultipla.querySelectorAll('input[type="text"]');
             
             if (tipo === 'dissertativa') {
-                blocoMultipla.style.display = 'none';
+                blocoMultipla.classList.add('oculto');
                 inputs.forEach(i => i.removeAttribute('required'));
             } else {
-                blocoMultipla.style.display = 'block';
+                blocoMultipla.classList.remove('oculto');
                 inputs.forEach(i => i.setAttribute('required', 'true'));
             }
         }
